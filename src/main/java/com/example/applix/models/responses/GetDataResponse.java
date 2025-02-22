@@ -11,6 +11,7 @@ import java.util.List;
 @AllArgsConstructor
 public class GetDataResponse {
     public List<FilteredData> records;
+    public Integer totalPages;
     public String message;
     public ErrorCode errorCode;
 }

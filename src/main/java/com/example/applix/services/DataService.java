@@ -7,7 +7,7 @@ import com.example.applix.models.db.FilteredData;
 import com.example.applix.repositories.FileRepository;
 import com.example.applix.repositories.FilteredDataRepository;
 import jakarta.transaction.Transactional;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 
@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-@Component
+@Service
 public class DataService {
     private final FilteredDataRepository filteredDataRepository;
     private final FileRepository fileRepository;
@@ -89,17 +89,25 @@ public class DataService {
         return records.size();
     }
 
-
-
     public List<FilteredData> getData(Integer fileId, Integer pageNumber, Integer offSet) {
         // Set default values
         int pageNum = (pageNumber == null || pageNumber < 1) ? 1 : pageNumber;
         int limit = (offSet == null || offSet < 1) ? 25 : offSet;
 
+
         Pageable pageable = PageRequest.of(pageNum - 1, limit);
         Page<FilteredData> page = filteredDataRepository.findByFileId(fileId, pageable);
 
         return page.getContent();
+    }
+
+    public int getTotalPageCount(Integer fileId, Integer offSet) {
+         int limit = (offSet == null || offSet < 1) ? 25 : offSet;
+
+        // Get the total count of records for the given fileId
+        long totalRecords = filteredDataRepository.countByFileId(fileId);
+
+        return (int) Math.ceil((double) totalRecords / limit);
     }
 
     public List<FilteredData> getDataByTimeDelta(Integer fileId, String start, String end) {
@@ -109,5 +117,9 @@ public class DataService {
 
         // Retrieve data within the specified time range
         return filteredDataRepository.findByFileIdAndTimestampBetween(fileId, startTime, endTime);
+    }
+
+    public List<File> getUploadedFilesWithStatusZeroOrOne() {
+        return fileRepository.findByStatusIn(List.of(0, 1));
     }
 }
