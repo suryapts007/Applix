@@ -3,13 +3,12 @@ package com.example.applix.controllers;
 
 import com.example.applix.enums.ErrorCode;
 import com.example.applix.exceptions.ApplixException;
-import com.example.applix.models.db.RawData;
+import com.example.applix.models.db.FilteredData;
 import com.example.applix.models.responses.GetDataResponse;
 import com.example.applix.models.responses.UploadResponse;
 import com.example.applix.services.DataService;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import com.example.applix.repositories.RawDataRepository;
 
 
 import java.util.List;
@@ -18,11 +17,9 @@ import java.util.List;
 @RestController
 @RequestMapping("/data")
 public class DataController {
-    private final RawDataRepository repository;
     private final DataService dataService;
 
-    public DataController(RawDataRepository repository, DataService dataService) {
-        this.repository = repository;
+    public DataController(DataService dataService) {
         this.dataService = dataService;
     }
 
@@ -41,9 +38,9 @@ public class DataController {
 
 
     @GetMapping
-    public GetDataResponse getData(@RequestParam("page") Integer pageNo, @RequestParam("offset") Integer offSet) {
+    public GetDataResponse getData(@RequestParam("fileId") Integer fileId, @RequestParam("page") Integer pageNo, @RequestParam("offset") Integer offSet) {
         try {
-            List<RawData> data = dataService.getData(pageNo, offSet);
+            List<FilteredData> data = dataService.getData(fileId, pageNo, offSet);
             return new GetDataResponse(data, "success", ErrorCode.NO_ERROR);
         } catch (Exception e) {
             return new GetDataResponse(null, "Error : " + e.getMessage(), ErrorCode.GENERIC_ERROR);
@@ -52,9 +49,9 @@ public class DataController {
 
 
     @GetMapping("/filter")
-    public GetDataResponse getDataByTimeDelta(@RequestParam String start, @RequestParam String end) {
+    public GetDataResponse getDataByTimeDelta(@RequestParam Integer fileId, @RequestParam String start, @RequestParam String end) {
         try {
-            List<RawData> dataByTimeDelta = dataService.getDataByTimeDelta(start, end);
+            List<FilteredData> dataByTimeDelta = dataService.getDataByTimeDelta(fileId, start, end);
             return new GetDataResponse(dataByTimeDelta, "success", ErrorCode.NO_ERROR);
         } catch (Exception e) {
             return new GetDataResponse(null, "Error : " + e.getMessage(), ErrorCode.GENERIC_ERROR);

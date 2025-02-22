@@ -3,25 +3,25 @@ package com.example.applix.models.db;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-
 import java.time.LocalDateTime;
-
 
 @Entity
 @Getter
 @Setter
-@Table(name = "cleaned_data")
-public class CleanedData {
+@Table(name = "filtered_data")
+public class FilteredData {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(name = "id", nullable = false)
+    private Integer id;
 
-    @Column(nullable = false)
+    @Column(name = "fileid", nullable = false)
+    private Integer fileId;
+
+    @Column(name = "timestamp", nullable = false)
     private LocalDateTime timestamp;
 
-    @Column(nullable = false)
+    @Column(name = "temperature", nullable = false)
     private Double temperature;
 
-    @Column(nullable = false)
-    private Double humidity;
 }
