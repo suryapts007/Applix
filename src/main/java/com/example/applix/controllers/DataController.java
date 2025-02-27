@@ -2,7 +2,7 @@ package com.example.applix.controllers;
 
 import com.example.applix.enums.ErrorCode;
 import com.example.applix.exceptions.ApplixException;
-import com.example.applix.models.db.File;
+import com.example.applix.models.db.FileTable;
 import com.example.applix.models.db.FilteredData;
 import com.example.applix.models.responses.GetDataResponse;
 import com.example.applix.models.responses.GetFilesResponse;
@@ -27,11 +27,23 @@ public class DataController {
     }
 
 
+    @PostMapping("/upload_async")
+    public UploadResponse uploadAsync(@RequestParam("file") MultipartFile file) {
+        try {
+            String recordCount = dataService.uploadFileAsync(file);
+            return new UploadResponse(ErrorCode.NO_ERROR, "File Saved Successfully", 0);
+        } catch (ApplixException e) {
+            return new UploadResponse(ErrorCode.FILE_NOT_FOUND, "File Not Found", 0);
+        } catch (Exception e) {
+            return new UploadResponse(ErrorCode.GENERIC_ERROR, "Error : " + e.getMessage(), 0);
+        }
+    }
+
     @PostMapping("/upload")
     public UploadResponse upload(@RequestParam("file") MultipartFile file) {
         try {
-            int recordCount = dataService.uploadFile(file);
-            return new UploadResponse(ErrorCode.NO_ERROR, "success", recordCount);
+            String recordCount = dataService.uploadFileAsync(file);
+            return new UploadResponse(ErrorCode.NO_ERROR, "success", 0);
         } catch (ApplixException e) {
             return new UploadResponse(ErrorCode.FILE_NOT_FOUND, "File Not Found", 0);
         } catch (Exception e) {
@@ -66,8 +78,8 @@ public class DataController {
     @GetMapping("/files")
     public GetFilesResponse getFiles() {
         try {
-            List<File> files = dataService.getUploadedFilesWithStatusZeroOrOne();
-            return new GetFilesResponse(files, "success", ErrorCode.NO_ERROR);
+            List<FileTable> fileTables = dataService.getUploadedFilesWithStatusZeroOrOne();
+            return new GetFilesResponse(fileTables, "success", ErrorCode.NO_ERROR);
         } catch (Exception e) {
             return new GetFilesResponse(null, "Error : " + e.getMessage(), ErrorCode.GENERIC_ERROR);
         }

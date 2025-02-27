@@ -3,12 +3,15 @@ package com.example.applix.models.db;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Getter
 @Setter
 @Table(name = "files_table")
-public class File {
+public class FileTable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
@@ -19,4 +22,8 @@ public class File {
 
     @Column(name = "status", nullable = false)
     private Integer status;
+
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
 }

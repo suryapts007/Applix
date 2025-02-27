@@ -2,14 +2,18 @@ package com.example.applix.services;
 
 
 import com.example.applix.exceptions.ApplixException;
-import com.example.applix.models.db.File;
+import com.example.applix.models.db.FileTable;
 import com.example.applix.models.db.FilteredData;
 import com.example.applix.repositories.FileRepository;
 import com.example.applix.repositories.FilteredDataRepository;
 import jakarta.transaction.Transactional;
 import jakarta.validation.constraints.NotNull;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -19,9 +23,13 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 import java.io.BufferedReader;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -35,16 +43,95 @@ public class DataService {
     private final FilteredDataRepository filteredDataRepository;
     private final FileRepository fileRepository;
     private final JdbcTemplate jdbcTemplate;
+    private final KafkaTemplate<String, String> kafkaTemplate;
+
 
     private static final int BATCH_SIZE = 1000;
     private static final String INSERT_SQL = "INSERT INTO filtered_data (timestamp, temperature, file_id) VALUES (?, ?, ?)";
 
+    @Value("${file.upload-dir}") // Load upload directory from properties
+    private String uploadDir;
 
-    public DataService(FilteredDataRepository filteredDataRepository, FileRepository fileRepository, JdbcTemplate jdbcTemplate) {
+
+
+    public DataService(FilteredDataRepository filteredDataRepository, FileRepository fileRepository, JdbcTemplate jdbcTemplate, KafkaTemplate kafkaTemplate) {
         this.filteredDataRepository = filteredDataRepository;
         this.fileRepository = fileRepository;
         this.jdbcTemplate = jdbcTemplate;
+        this.kafkaTemplate = kafkaTemplate;
     }
+
+    @Transactional
+    public String uploadFileAsync(MultipartFile file) throws IOException, ApplixException {
+        long startTime = System.nanoTime();
+
+        if (file.isEmpty()) {
+            throw new ApplixException("Empty file");
+        }
+
+        // ✅ Step 1: Save the file in resources/uploads/
+        String fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename(); // Avoid name conflicts
+        java.io.File uploadDirectory = new java.io.File(uploadDir);
+        if (!uploadDirectory.exists()) {
+            boolean mkdirs = uploadDirectory.mkdirs(); // Ensure directory exists
+            if(!mkdirs) throw new ApplixException("File Could Not Be Saved! Try Again");
+        }
+
+
+        java.io.File savedFile = new java.io.File(uploadDirectory, fileName);
+        try (FileOutputStream fos = new FileOutputStream(savedFile)) {
+            fos.write(file.getBytes());
+        }
+
+        // ✅ Step 2: Save file metadata in `files_table` with `status = 0`
+        FileTable dbFileTable = new FileTable();
+        dbFileTable.setName(fileName);
+        dbFileTable.setStatus(0); // Mark as processing
+        dbFileTable = fileRepository.save(dbFileTable);
+
+        Integer fileId = dbFileTable.getId();
+
+        // ✅ Step 3: Publish an event to Kafka
+        kafkaTemplate.send("file-processing-topic", fileId.toString(), savedFile.getAbsolutePath());
+
+        long endTime = System.nanoTime();
+        double totalTimeInSeconds = (endTime - startTime) / 1_000_000_000.0;
+        System.out.println("File upload completed in {} seconds: " + totalTimeInSeconds);
+
+        return "File uploaded successfully. Processing started.";
+    }
+
+    @KafkaListener(topics = "file-processing-topic", groupId = "file-processing-group")
+    public void consume(ConsumerRecord<String, String> record) {
+        Integer fileId = Integer.parseInt(record.key());
+        String filePath = record.value();
+
+        try {
+            // ✅ Step 1: Read the CSV file
+            Path path = Paths.get(filePath);
+            List<FilteredData> records = Files.lines(path, StandardCharsets.UTF_8)
+                    .parallel() // Enable parallel processing
+                    .filter(line -> !line.trim().isEmpty()) // Remove empty lines
+                    .map(line -> parseLine(line, fileId)) // Convert to FilteredData object
+                    .filter(Objects::nonNull) // Remove invalid records
+                    .collect(Collectors.toList());
+
+            if (!records.isEmpty()) {
+                filteredDataRepository.saveAll(records);
+            }
+
+            // ✅ Step 2: Update file status to "Processed"
+            fileRepository.findById(fileId).ifPresent(file -> {
+                file.setStatus(1);
+                fileRepository.save(file);
+            });
+
+            System.out.println("File processing completed: " + filePath);
+        } catch (IOException e) {
+            System.err.println("Error processing file: " + e.getMessage());
+        }
+    }
+
 
 
     @Transactional(rollbackOn = Exception.class)
@@ -56,12 +143,12 @@ public class DataService {
         }
 
         String fileName = file.getOriginalFilename();
-        File newFile = new File();
-        newFile.setName(fileName);
-        newFile.setStatus(0); // Mark as processing
+        FileTable newFileTable = new FileTable();
+        newFileTable.setName(fileName);
+        newFileTable.setStatus(0); // Mark as processing
 
-        newFile = fileRepository.save(newFile);
-        Integer fileId = newFile.getId();
+        newFileTable = fileRepository.save(newFileTable);
+        Integer fileId = newFileTable.getId();
 
         BufferedReader br = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8));
 
@@ -81,8 +168,8 @@ public class DataService {
         batchInsert(records);
 
         // Mark file processing as completed
-        newFile.setStatus(1);
-        fileRepository.save(newFile);
+        newFileTable.setStatus(1);
+        fileRepository.save(newFileTable);
 
         long endTime = System.nanoTime();  // End timer
         double totalTimeInSeconds = (endTime - startTime) / 1_000_000_000.0;
@@ -164,7 +251,7 @@ public class DataService {
         return filteredDataRepository.findByFileIdAndTimestampBetween(fileId, startTime, endTime);
     }
 
-    public List<File> getUploadedFilesWithStatusZeroOrOne() {
+    public List<FileTable> getUploadedFilesWithStatusZeroOrOne() {
         return fileRepository.findByStatusIn(List.of(0, 1));
     }
 }
