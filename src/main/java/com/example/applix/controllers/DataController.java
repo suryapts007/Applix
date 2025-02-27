@@ -6,6 +6,7 @@ import com.example.applix.models.db.FileTable;
 import com.example.applix.models.db.FilteredData;
 import com.example.applix.models.responses.GetDataResponse;
 import com.example.applix.models.responses.GetFilesResponse;
+import com.example.applix.models.responses.UploadAsyncResponse;
 import com.example.applix.models.responses.UploadResponse;
 import com.example.applix.services.DataService;
 import org.springframework.web.bind.annotation.*;
@@ -28,22 +29,22 @@ public class DataController {
 
 
     @PostMapping("/upload_async")
-    public UploadResponse uploadAsync(@RequestParam("file") MultipartFile file) {
+    public UploadAsyncResponse uploadAsync(@RequestParam("file") MultipartFile file) {
         try {
-            String recordCount = dataService.uploadFileAsync(file);
-            return new UploadResponse(ErrorCode.NO_ERROR, "File Saved Successfully", 0);
+            dataService.uploadFileAsync(file);
+            return new UploadAsyncResponse(ErrorCode.NO_ERROR, "File uploaded successfully. Processing started.");
         } catch (ApplixException e) {
-            return new UploadResponse(ErrorCode.FILE_NOT_FOUND, "File Not Found", 0);
+            return new UploadAsyncResponse(ErrorCode.FILE_NOT_FOUND, "File Not Found");
         } catch (Exception e) {
-            return new UploadResponse(ErrorCode.GENERIC_ERROR, "Error : " + e.getMessage(), 0);
+            return new UploadAsyncResponse(ErrorCode.GENERIC_ERROR, "Error : " + e.getMessage());
         }
     }
 
     @PostMapping("/upload")
     public UploadResponse upload(@RequestParam("file") MultipartFile file) {
         try {
-            String recordCount = dataService.uploadFileAsync(file);
-            return new UploadResponse(ErrorCode.NO_ERROR, "success", 0);
+            int recordCount = dataService.uploadFile(file);
+            return new UploadResponse(ErrorCode.NO_ERROR, "success", recordCount);
         } catch (ApplixException e) {
             return new UploadResponse(ErrorCode.FILE_NOT_FOUND, "File Not Found", 0);
         } catch (Exception e) {
