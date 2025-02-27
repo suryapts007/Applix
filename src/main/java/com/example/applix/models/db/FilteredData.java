@@ -15,7 +15,7 @@ public class FilteredData {
     @Column(name = "id", nullable = false)
     private Integer id;
 
-    @Column(name = "fileid", nullable = false)
+    @Column(name = "file_id", nullable = false)
     private Integer fileId;
 
     @Column(name = "timestamp", nullable = false)
@@ -23,5 +23,5 @@ public class FilteredData {
 
     @Column(name = "temperature", nullable = false)
     private Double temperature;
-
+//INSERT INTO filtered_data (timestamp, temperature, file_id) VALUES (?, ?, ?)
 }
