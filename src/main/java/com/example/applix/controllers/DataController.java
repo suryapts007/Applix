@@ -40,10 +40,10 @@ public class DataController {
         }
     }
 
-    @PostMapping("/upload")
-    public UploadResponse upload(@RequestParam("file") MultipartFile file) {
+    @PostMapping("/upload_sync")
+    public UploadResponse uploadFileSync(@RequestParam("file") MultipartFile file) {
         try {
-            int recordCount = dataService.uploadFile(file);
+            int recordCount = dataService.uploadFileSync(file);
             return new UploadResponse(ErrorCode.NO_ERROR, "success", recordCount);
         } catch (ApplixException e) {
             return new UploadResponse(ErrorCode.FILE_NOT_FOUND, "File Not Found", 0);

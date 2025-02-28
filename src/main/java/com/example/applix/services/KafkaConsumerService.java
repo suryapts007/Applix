@@ -1,65 +1,74 @@
 package com.example.applix.services;
 
-
+import com.example.applix.models.db.FileTable;
 import com.example.applix.models.db.FilteredData;
 import com.example.applix.repositories.FileRepository;
-import com.example.applix.repositories.FilteredDataRepository;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Service;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.charset.StandardCharsets;
-import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
+import java.io.File;
 import java.io.IOException;
-import java.util.stream.Stream;
-
+import java.util.List;
+import java.util.Optional;
 
 @Service
 public class KafkaConsumerService {
-    private final FilteredDataRepository filteredDataRepository;
     private final FileRepository fileRepository;
     private final FileProcessorService fileProcessorService;
 
-    public KafkaConsumerService(FilteredDataRepository filteredDataRepository, FileRepository fileRepository, FileProcessorService fileProcessorService) {
-        this.filteredDataRepository = filteredDataRepository;
+    public KafkaConsumerService(FileRepository fileRepository, FileProcessorService fileProcessorService) {
         this.fileRepository = fileRepository;
         this.fileProcessorService = fileProcessorService;
     }
 
     @KafkaListener(topics = "file-processing-topic", groupId = "file-processing-group")
-    public void consume(ConsumerRecord<String, String> record) {
-        Integer fileId = Integer.parseInt(record.key());
+    public void consume(ConsumerRecord<String, String> record, Acknowledgment acknowledgment) {
+        int fileId = Integer.parseInt(record.key());
         String filePath = record.value();
 
-        try {
-            Path path = Paths.get(filePath);
-//            fileProcessorService.processFile()
-            Stream<String> lines = Files.lines(path, StandardCharsets.UTF_8);
-            List<FilteredData> records = Files.lines(path, StandardCharsets.UTF_8)
-                    .parallel()
-                    .filter(line -> !line.trim().isEmpty()) // Remove empty lines
-                    .map(line -> fileProcessorService.parseLine(line, fileId)) // Convert to FilteredData object
-                    .filter(Objects::nonNull) // Remove invalid records
-                    .collect(Collectors.toList());
+        System.out.println("✅ Received Kafka event: Processing file ID: " + fileId + ", Path: " + filePath);
 
-            if (!records.isEmpty()) {
-                filteredDataRepository.saveAll(records);
+        try {
+            // Step 1: Check if file status is already "1" (Processed)
+            Optional<FileTable> fileTableOptional = fileRepository.findById(fileId);
+            if (fileTableOptional.isEmpty()) {
+                System.err.println("⚠️ File metadata not found for ID: " + fileId);
+                acknowledgment.acknowledge();
+                return;
             }
 
-            fileRepository.findById(fileId).ifPresent(file -> {
-                file.setStatus(1);
-                fileRepository.save(file);
-            });
+            FileTable fileTable = fileTableOptional.get();
+            if (fileTable.getStatus() == 1) {
+                System.out.println("✅ Skipping already processed file ID: " + fileId);
+                acknowledgment.acknowledge();
+                return;
+            }
 
-            System.out.println("File processing completed: " + filePath);
+            // Step 2: Process the file
+            File file = new File(filePath);
+            if (!file.exists()) {
+                System.err.println("⚠️ File not found at path: " + filePath);
+                acknowledgment.acknowledge();
+                return;
+            }
+
+            List<FilteredData> filteredData = fileProcessorService.processFile(file, fileId);
+            if (!filteredData.isEmpty()) {
+                fileProcessorService.batchInsert(filteredData);
+            }
+
+            // Step 3: Update file status in DB
+            fileProcessorService.updateFileMetaDataWithCompletedStatus(fileTable);
+            System.out.println("✅ File processing completed for ID: " + fileId);
+
+            // Step 4: Acknowledge Kafka after successful processing
+            acknowledgment.acknowledge();
+
         } catch (IOException e) {
-            System.err.println("Error processing file: " + e.getMessage());
+            System.err.println("❌ Error processing file ID: " + fileId + " - " + e.getMessage());
+            // No acknowledgment → Kafka will retry later
         }
     }
-
 }

@@ -4,17 +4,13 @@ import com.example.applix.exceptions.ApplixException;
 import com.example.applix.models.db.FileTable;
 import com.example.applix.models.db.FilteredData;
 import com.example.applix.repositories.FileRepository;
-import jakarta.validation.constraints.NotNull;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -66,21 +62,16 @@ public class FileProcessorService {
         fileRepository.save(fileTable);
     }
 
-    public List<FilteredData> processFile(MultipartFile file, int fileId) throws IOException, ApplixException {
-        BufferedReader br = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8));
 
-        List<FilteredData> filteredData = br.lines()
-                .parallel()
-                .filter(line -> !line.trim().isEmpty())
-                .map(line -> this.parseLine(line, fileId))
-                .filter(Objects::nonNull)
-                .toList();
-
-        if (filteredData.isEmpty()) {
-            throw new ApplixException("No valid data found in the file.");
+    public List<FilteredData> processFile(File file, int fileId) throws IOException {
+        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+            return br.lines()
+                    .parallel()
+                    .filter(line -> !line.trim().isEmpty())
+                    .map(line -> this.parseLine(line, fileId))
+                    .filter(Objects::nonNull)
+                    .toList();
         }
-
-        return filteredData;
     }
 
     public FilteredData parseLine(String line, Integer fileId) {
@@ -99,29 +90,40 @@ public class FileProcessorService {
         }
     }
 
+    public File convertMultipartFileToFile(MultipartFile multipartFile) throws IOException {
+        File tempFile = File.createTempFile("upload_", "_" + multipartFile.getOriginalFilename());
+        try (FileOutputStream fos = new FileOutputStream(tempFile)) {
+            fos.write(multipartFile.getBytes());
+        }
+        return tempFile;
+    }
 
-    private static final int BATCH_SIZE = 1000;
-    private static final String INSERT_SQL = "INSERT INTO filtered_data (timestamp, temperature, file_id) VALUES (?, ?, ?)";
+
+    private static final int BATCH_SIZE = 10000;
     public void batchInsert(List<FilteredData> records) {
-        for (int i = 0; i < records.size(); i += BATCH_SIZE) {
-            int end = Math.min(i + BATCH_SIZE, records.size());
-            List<FilteredData> batch = records.subList(i, end); // Get the batch
+        int totalRecords = records.size();
+        for (int i = 0; i < totalRecords; i += BATCH_SIZE) {
+            System.out.println(i);
+            int end = Math.min(i + BATCH_SIZE, totalRecords);
+            List<FilteredData> batch = records.subList(i, end);
 
+            // Constructing a single large SQL query
+            StringBuilder sql = new StringBuilder("INSERT INTO filtered_data (timestamp, temperature, file_id) VALUES ");
+            List<Object> params = new ArrayList<>();
 
-            jdbcTemplate.batchUpdate(INSERT_SQL, new BatchPreparedStatementSetter() {
-                @Override
-                public void setValues(@NotNull PreparedStatement ps, int batchIndex) throws SQLException {
-                    FilteredData data = batch.get(batchIndex); // ✅ Use batchIndex relative to this batch
-                    ps.setTimestamp(1, java.sql.Timestamp.valueOf(data.getTimestamp()));
-                    ps.setDouble(2, data.getTemperature());
-                    ps.setInt(3, data.getFileId());
-                }
+            for (FilteredData data : batch) {
+                sql.append("(?, ?, ?),");
+                params.add(java.sql.Timestamp.valueOf(data.getTimestamp()));
+                params.add(data.getTemperature());
+                params.add(data.getFileId());
+            }
 
-                @Override
-                public int getBatchSize() {
-                    return batch.size(); // ✅ Correctly return batch size
-                }
-            });
+            sql.setLength(sql.length() - 1); // Remove last comma
+
+            // Execute a single insert query with all 10,000 records
+            jdbcTemplate.update(sql.toString(), params.toArray());
+
+            System.out.println("✅ Inserted " + batch.size() + " records in one query");
         }
     }
 

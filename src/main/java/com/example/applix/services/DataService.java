@@ -52,12 +52,12 @@ public class DataService {
 
 
     @Transactional(rollbackOn = Exception.class)
-    public int uploadFile(MultipartFile file) throws IOException, ApplixException {
+    public int uploadFileSync(MultipartFile file) throws IOException, ApplixException {
         long startTime = System.nanoTime();
 
         FileTable fileTable = fileProcessorService.insertFileMetaDataWithProcessingStatus(file.getOriginalFilename());
 
-        List<FilteredData> filteredData = fileProcessorService.processFile(file, fileTable.getId());
+        List<FilteredData> filteredData = fileProcessorService.processFile(fileProcessorService.convertMultipartFileToFile(file), fileTable.getId());
 
         fileProcessorService.batchInsert(filteredData);
 
