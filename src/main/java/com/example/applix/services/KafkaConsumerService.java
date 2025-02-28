@@ -1,7 +1,6 @@
 package com.example.applix.services;
 
 import com.example.applix.models.db.FileTable;
-import com.example.applix.models.db.FilteredData;
 import com.example.applix.repositories.FileRepository;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -10,7 +9,6 @@ import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -29,6 +27,7 @@ public class KafkaConsumerService {
         String filePath = record.value();
 
         System.out.println("✅ Received Kafka event: Processing file ID: " + fileId + ", Path: " + filePath);
+        long startTime = System.nanoTime();
 
         try {
             // Step 1: Check if file status is already "1" (Processed)
@@ -54,10 +53,7 @@ public class KafkaConsumerService {
                 return;
             }
 
-            List<FilteredData> filteredData = fileProcessorService.processFile(file, fileId);
-            if (!filteredData.isEmpty()) {
-                fileProcessorService.batchInsert(filteredData);
-            }
+            fileProcessorService.processFileStreaming(file, fileId);
 
             // Step 3: Update file status in DB
             fileProcessorService.updateFileMetaDataWithCompletedStatus(fileTable);
@@ -68,7 +64,11 @@ public class KafkaConsumerService {
 
         } catch (IOException e) {
             System.err.println("❌ Error processing file ID: " + fileId + " - " + e.getMessage());
-            // No acknowledgment → Kafka will retry later
+            // No acknowledgment -> Kafka will retry later
         }
+
+        long endTime = System.nanoTime();
+        double totalTimeInSeconds = (endTime - startTime) / 1_000_000_000.0;
+        System.out.println("File processing completed in {} seconds: " + totalTimeInSeconds);
     }
 }

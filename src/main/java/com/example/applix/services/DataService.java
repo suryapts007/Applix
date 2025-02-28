@@ -35,22 +35,6 @@ public class DataService {
     }
 
 
-    @Transactional
-    public void uploadFileAsync(MultipartFile file) throws IOException, ApplixException {
-        long startTime = System.nanoTime();
-
-        File savedFile = fileProcessorService.uploadFileToS3(file);
-
-        FileTable fileTable = fileProcessorService.insertFileMetaDataWithProcessingStatus(savedFile.getName());
-
-        kafkaProducerService.sendFileProcessingEvent(fileTable.getId(), savedFile.getAbsolutePath());
-
-        long endTime = System.nanoTime();
-        double totalTimeInSeconds = (endTime - startTime) / 1_000_000_000.0;
-        System.out.println("File upload completed in {} seconds: " + totalTimeInSeconds);
-    }
-
-
     @Transactional(rollbackOn = Exception.class)
     public int uploadFileSync(MultipartFile file) throws IOException, ApplixException {
         long startTime = System.nanoTime();
@@ -68,6 +52,22 @@ public class DataService {
         System.out.println("uploadFile function executed in {} seconds" + totalTimeInSeconds);
 
         return filteredData.size();
+    }
+
+
+    @Transactional
+    public void uploadFileAsync(MultipartFile file) throws IOException, ApplixException {
+        long startTime = System.nanoTime();
+
+        File savedFile = fileProcessorService.uploadFileToS3(file);
+
+        FileTable fileTable = fileProcessorService.insertFileMetaDataWithProcessingStatus(savedFile.getName());
+
+        kafkaProducerService.sendFileProcessingEvent(fileTable.getId(), savedFile.getAbsolutePath());
+
+        long endTime = System.nanoTime();
+        double totalTimeInSeconds = (endTime - startTime) / 1_000_000_000.0;
+        System.out.println("File upload completed in {} seconds: " + totalTimeInSeconds);
     }
 
 

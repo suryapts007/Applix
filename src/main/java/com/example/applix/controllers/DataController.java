@@ -28,18 +28,7 @@ public class DataController {
     }
 
 
-    @PostMapping("/upload_async")
-    public UploadAsyncResponse uploadAsync(@RequestParam("file") MultipartFile file) {
-        try {
-            dataService.uploadFileAsync(file);
-            return new UploadAsyncResponse(ErrorCode.NO_ERROR, "File uploaded successfully. Processing started.");
-        } catch (ApplixException e) {
-            return new UploadAsyncResponse(ErrorCode.FILE_NOT_FOUND, "File Not Found");
-        } catch (Exception e) {
-            return new UploadAsyncResponse(ErrorCode.GENERIC_ERROR, "Error : " + e.getMessage());
-        }
-    }
-
+    // Files with size less that 100MB or 1 million rows
     @PostMapping("/upload_sync")
     public UploadResponse uploadFileSync(@RequestParam("file") MultipartFile file) {
         try {
@@ -49,6 +38,20 @@ public class DataController {
             return new UploadResponse(ErrorCode.FILE_NOT_FOUND, "File Not Found", 0);
         } catch (Exception e) {
             return new UploadResponse(ErrorCode.GENERIC_ERROR, "Error : " + e.getMessage(), 0);
+        }
+    }
+
+
+    // Files with size less than 1.5GB or 20 million rows
+    @PostMapping("/upload_async")
+    public UploadAsyncResponse uploadAsync(@RequestParam("file") MultipartFile file) {
+        try {
+            dataService.uploadFileAsync(file);
+            return new UploadAsyncResponse(ErrorCode.NO_ERROR, "File uploaded successfully. Processing started.");
+        } catch (ApplixException e) {
+            return new UploadAsyncResponse(ErrorCode.FILE_NOT_FOUND, "File Not Found");
+        } catch (Exception e) {
+            return new UploadAsyncResponse(ErrorCode.GENERIC_ERROR, "Error : " + e.getMessage());
         }
     }
 
