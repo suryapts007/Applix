@@ -2,7 +2,7 @@
 
 Below is the system design and architecture diagram for the Applix project:
 
-![System Design And Architecture](src/main/resources/Screenshot 2025-03-02 at 2.47.48 AM.png)
+![System Design And Architecture](https://github.com/suryapts007/Applix/blob/main/src/main/resources/Screenshot%202025-03-02%20at%202.47.48%E2%80%AFAM.png)
 
 
 
