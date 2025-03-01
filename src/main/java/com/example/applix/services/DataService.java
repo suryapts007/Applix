@@ -11,12 +11,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 import java.io.*;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -71,25 +72,56 @@ public class DataService {
     }
 
 
-    public List<FilteredData> getData(Integer fileId, Integer pageNumber, Integer offSet) {
+    public List<FilteredData> getData(Integer fileId, Integer pageNumber, Integer offSet, String start, String end) {
         int pageNum = (pageNumber == null || pageNumber < 1) ? 1 : pageNumber;
         int limit = (offSet == null || offSet < 1) ? 25 : offSet;
 
         Pageable pageable = PageRequest.of(pageNum - 1, limit);
-        Page<FilteredData> page = filteredDataRepository.findByFileId(fileId, pageable);
 
-        return page.getContent();
+        List<FilteredData> data;
+
+        if (start != null && end != null) {
+//            LocalDateTime startTime = LocalDateTime.parse(start, DateTimeFormatter.ISO_DATE_TIME);
+//            LocalDateTime endTime = LocalDateTime.parse(end, DateTimeFormatter.ISO_DATE_TIME);
+
+            LocalDateTime startTime = Instant.parse(start).atZone(ZoneOffset.UTC).toLocalDateTime();
+            LocalDateTime endTime = Instant.parse(end).atZone(ZoneOffset.UTC).toLocalDateTime();
+
+            // Fetch filtered data
+            data = filteredDataRepository.findByFileIdAndTimestampBetweenOrderByTimestampAsc(fileId, startTime, endTime, pageable);
+        } else {
+            // Fetch all data without time filtering
+            data = filteredDataRepository.findByFileIdOrderByTimestampAsc(fileId, pageable);
+        }
+
+        return data;
     }
+    // start: "2024-01-09T18:30:00.000Z"
+    // end: "2024-01-12T18:30:00.000Z"
 
+    // startTime: 2024-01-09T18:30  2024-01-09T18:30
+    // endTime: 2024-01-12T18:30
 
-    public int getTotalPageCount(Integer fileId, Integer offSet) {
-         int limit = (offSet == null || offSet < 1) ? 25 : offSet;
+    // Timestamp stored in DB: 2023-12-31 18:30:01.000000
 
-        // Get the total count of records for the given fileId
-        long totalRecords = filteredDataRepository.countByFileId(fileId);
+    public int getTotalPageCount(Integer fileId, Integer offSet, String start, String end) {
+        int limit = (offSet == null || offSet < 1) ? 25 : offSet;
+        long totalRecords;
+
+        if (start != null && end != null) {
+            LocalDateTime startTime = LocalDateTime.parse(start, DateTimeFormatter.ISO_DATE_TIME);
+            LocalDateTime endTime = LocalDateTime.parse(end, DateTimeFormatter.ISO_DATE_TIME);
+
+            // Count filtered records
+            totalRecords = filteredDataRepository.countByFileIdAndTimestampBetween(fileId, startTime, endTime);
+        } else {
+            // Count all records
+            totalRecords = filteredDataRepository.countByFileId(fileId);
+        }
 
         return (int) Math.ceil((double) totalRecords / limit);
     }
+
 
     public List<FilteredData> getDataByTimeDelta(Integer fileId, String start, String end) {
         // Parse the start and end time strings into LocalDateTime

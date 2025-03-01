@@ -12,5 +12,7 @@ import java.util.List;
 public interface FilteredDataRepository extends JpaRepository<FilteredData, Integer> {
     List<FilteredData> findByFileIdAndTimestampBetween(Integer fileId, LocalDateTime start, LocalDateTime end);
     long countByFileId(Integer fileId);
-    Page<FilteredData> findByFileId(Integer fileId, Pageable pageable);
+    List<FilteredData> findByFileIdAndTimestampBetweenOrderByTimestampAsc(Integer fileId, LocalDateTime startTime, LocalDateTime endTime, Pageable pageable);
+    List<FilteredData> findByFileIdOrderByTimestampAsc(Integer fileId, Pageable pageable);
+    long countByFileIdAndTimestampBetween(Integer fileId, LocalDateTime startTime, LocalDateTime endTime);
 }

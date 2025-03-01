@@ -8,7 +8,9 @@ import java.time.LocalDateTime;
 @Entity
 @Getter
 @Setter
-@Table(name = "filtered_data")
+@Table(name = "filtered_data", indexes = {
+        @Index(name = "idx_file_id", columnList = "file_id")
+})
 public class FilteredData {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -23,5 +25,4 @@ public class FilteredData {
 
     @Column(name = "temperature", nullable = false)
     private Double temperature;
-//INSERT INTO filtered_data (timestamp, temperature, file_id) VALUES (?, ?, ?)
 }

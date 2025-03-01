@@ -10,7 +10,7 @@ import java.util.List;
 @Data
 @AllArgsConstructor
 public class GetFilesResponse {
-    public List<FileTable> fileTables;
+    public List<FileTable> files;
     public String message;
     public ErrorCode errorCode;
 }

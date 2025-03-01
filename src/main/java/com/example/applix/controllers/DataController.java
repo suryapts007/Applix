@@ -57,22 +57,11 @@ public class DataController {
 
 
     @GetMapping
-    public GetDataResponse getData(@RequestParam("fileId") Integer fileId, @RequestParam("page") Integer pageNo, @RequestParam("offset") Integer offSet) {
+    public GetDataResponse getData(@RequestParam("fileId") Integer fileId, @RequestParam("page") Integer pageNo, @RequestParam("offset") Integer offSet, @RequestParam(value = "startTime", required = false) String startTime, @RequestParam(value = "endTime", required = false) String endTime) {
         try {
-            List<FilteredData> data = dataService.getData(fileId, pageNo, offSet);
-            int totalPageCount = dataService.getTotalPageCount(fileId, offSet);
+            List<FilteredData> data = dataService.getData(fileId, pageNo, offSet, startTime, endTime);
+            int totalPageCount = dataService.getTotalPageCount(fileId, offSet, startTime, endTime);
             return new GetDataResponse(data, totalPageCount, "success", ErrorCode.NO_ERROR);
-        } catch (Exception e) {
-            return new GetDataResponse(null, null, "Error : " + e.getMessage(), ErrorCode.GENERIC_ERROR);
-        }
-    }
-
-
-    @GetMapping("/filter")
-    public GetDataResponse getDataByTimeDelta(@RequestParam Integer fileId, @RequestParam String start, @RequestParam String end) {
-        try {
-            List<FilteredData> dataByTimeDelta = dataService.getDataByTimeDelta(fileId, start, end);
-            return new GetDataResponse(dataByTimeDelta, null, "success", ErrorCode.NO_ERROR);
         } catch (Exception e) {
             return new GetDataResponse(null, null, "Error : " + e.getMessage(), ErrorCode.GENERIC_ERROR);
         }
