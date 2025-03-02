@@ -3,7 +3,6 @@ package com.example.applix.controllers;
 import com.example.applix.enums.ErrorCode;
 import com.example.applix.exceptions.ApplixException;
 import com.example.applix.models.db.FileTable;
-import com.example.applix.models.db.FilteredData;
 import com.example.applix.models.responses.GetDataResponse;
 import com.example.applix.models.responses.GetFilesResponse;
 import com.example.applix.models.responses.UploadAsyncResponse;
@@ -18,7 +17,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/data")
-@CrossOrigin(origins = "http://localhost:5174") // Allow only frontend
+@CrossOrigin(origins = "*") // Allow all origins
 // TODO :: make it work in production
 public class DataController {
     private final DataService dataService;

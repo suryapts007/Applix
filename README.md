@@ -45,3 +45,6 @@ mvn clean install
 mvn spring-boot:run
 ```
 Once started, the backend server will be accessible at: [http://localhost:8080](http://localhost:8080)
+
+
+Get .csv files from here to test the endpoints : https://drive.google.com/drive/folders/1IMo3_7RYlx3iry-q4WF6DmSLK67SUIvn?usp=sharing
