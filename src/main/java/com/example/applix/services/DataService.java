@@ -17,6 +17,7 @@ import org.springframework.data.domain.Pageable;
 import java.io.*;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -36,6 +37,7 @@ public class DataService {
     }
 
 
+    @Deprecated
     @Transactional(rollbackOn = Exception.class)
     public int uploadFileSync(MultipartFile file) throws IOException, ApplixException {
         long startTime = System.nanoTime();
@@ -81,14 +83,20 @@ public class DataService {
         List<FilteredData> data;
 
         if (start != null && end != null) {
-//            LocalDateTime startTime = LocalDateTime.parse(start, DateTimeFormatter.ISO_DATE_TIME);
-//            LocalDateTime endTime = LocalDateTime.parse(end, DateTimeFormatter.ISO_DATE_TIME);
+            // Convert UTC to IST
+            ZoneId utcZone = ZoneId.of("UTC");
+            ZoneId istZone = ZoneId.of("Asia/Kolkata");
 
-            LocalDateTime startTime = Instant.parse(start).atZone(ZoneOffset.UTC).toLocalDateTime();
-            LocalDateTime endTime = Instant.parse(end).atZone(ZoneOffset.UTC).toLocalDateTime();
+            LocalDateTime startTimeUTC = Instant.parse(start).atZone(utcZone).toLocalDateTime();
+            LocalDateTime endTimeUTC = Instant.parse(end).atZone(utcZone).toLocalDateTime();
+
+            // Convert to IST
+            LocalDateTime startTimeIST = startTimeUTC.atZone(utcZone).withZoneSameInstant(istZone).toLocalDateTime();
+            LocalDateTime endTimeIST = endTimeUTC.atZone(utcZone).withZoneSameInstant(istZone).toLocalDateTime();
+
 
             // Fetch filtered data
-            data = filteredDataRepository.findByFileIdAndTimestampBetweenOrderByTimestampAsc(fileId, startTime, endTime, pageable);
+            data = filteredDataRepository.findByFileIdAndTimestampBetweenOrderByTimestampAsc(fileId, startTimeIST, endTimeIST, pageable);
         } else {
             // Fetch all data without time filtering
             data = filteredDataRepository.findByFileIdOrderByTimestampAsc(fileId, pageable);
@@ -122,15 +130,6 @@ public class DataService {
         return (int) Math.ceil((double) totalRecords / limit);
     }
 
-
-    public List<FilteredData> getDataByTimeDelta(Integer fileId, String start, String end) {
-        // Parse the start and end time strings into LocalDateTime
-        LocalDateTime startTime = LocalDateTime.parse(start, DateTimeFormatter.ISO_DATE_TIME);
-        LocalDateTime endTime = LocalDateTime.parse(end, DateTimeFormatter.ISO_DATE_TIME);
-
-        // Retrieve data within the specified time range
-        return filteredDataRepository.findByFileIdAndTimestampBetween(fileId, startTime, endTime);
-    }
 
     public List<FileTable> getUploadedFilesWithStatusZeroOrOne() {
         return fileRepository.findByStatusIn(List.of(0, 1));

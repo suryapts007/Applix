@@ -20,6 +20,12 @@ public class FileTable {
     @Column(name = "name", nullable = false)
     private String name;
 
+    @Column(name = "mean")
+    private Double mean;
+
+    @Column(name = "median")
+    private Double median;
+
     @Column(name = "status", nullable = false)
     private Integer status;
 

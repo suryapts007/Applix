@@ -15,6 +15,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.DoubleSummaryStatistics;
+import java.util.PriorityQueue;
 
 @Service
 public class FileProcessorService {
@@ -65,6 +67,7 @@ public class FileProcessorService {
         return savedFile;
     }
 
+    @Deprecated
     public List<FilteredData> processFile(File file, int fileId) throws IOException {
         try (BufferedReader br = new BufferedReader(new FileReader(file))) {
             return br.lines()
@@ -76,19 +79,26 @@ public class FileProcessorService {
         }
     }
 
-    public void processFileStreaming(File file, int fileId) throws IOException {
+    public List<Double> processFileStreaming(File file, int fileId) throws IOException {
         ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+        DoubleSummaryStatistics stats = new DoubleSummaryStatistics();
+        PriorityQueue<Double> minHeap = new PriorityQueue<>();
+        PriorityQueue<Double> maxHeap = new PriorityQueue<>((a, b) -> Double.compare(b, a));
 
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             List<FilteredData> chunk = new ArrayList<>();
             String line;
-            int batchSize = 10_000;
 
             while ((line = reader.readLine()) != null) {
                 FilteredData data = parseLine(line, fileId);
-                if (data != null) chunk.add(data);
 
-                if (chunk.size() >= batchSize) {
+                if (data != null) {
+                    chunk.add(data);
+                    stats.accept(data.getTemperature());
+                    addNumberToHeapsForMedianData(data.getTemperature(), minHeap, maxHeap);
+                }
+
+                if (chunk.size() >= BATCH_SIZE) {
                     List<FilteredData> batch = new ArrayList<>(chunk);
                     executor.execute(() -> batchInsert(batch));
                     chunk.clear();
@@ -98,11 +108,39 @@ public class FileProcessorService {
             if (!chunk.isEmpty()) {
                 executor.execute(() -> batchInsert(chunk));
             }
+
         } catch (Exception e) {
-            System.out.println("Exception caught : " + e.getMessage());
+            System.out.println("Exception caught while processFileStreaming Execution : " + e.getMessage());
         } finally {
-            System.out.println("Finally reached!");
             executor.shutdown();
+            System.out.println("Successfully called executor.shutdown!!");
+        }
+
+        double mean = stats.getAverage();
+        double median = getMedian(minHeap, maxHeap);
+        return List.of(mean, median);
+    }
+
+    private void addNumberToHeapsForMedianData(double num, PriorityQueue<Double> minHeap, PriorityQueue<Double> maxHeap) {
+        if (maxHeap.isEmpty() || num <= maxHeap.peek()) {
+            maxHeap.offer(num);
+        } else {
+            minHeap.offer(num);
+        }
+
+        if (maxHeap.size() > minHeap.size() + 1) {
+            minHeap.offer(maxHeap.poll());
+        } else if (minHeap.size() > maxHeap.size()) {
+            maxHeap.offer(minHeap.poll());
+        }
+    }
+
+    private double getMedian(PriorityQueue<Double> minHeap, PriorityQueue<Double> maxHeap) {
+        if(maxHeap.size() == 0) return 0;
+        if (maxHeap.size() == minHeap.size()) {
+            return (maxHeap.peek() + minHeap.peek()) / 2.0;
+        } else {
+            return maxHeap.peek();
         }
     }
 

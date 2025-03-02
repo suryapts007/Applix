@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -53,9 +54,11 @@ public class KafkaConsumerService {
                 return;
             }
 
-            fileProcessorService.processFileStreaming(file, fileId);
+            List<Double> processedData = fileProcessorService.processFileStreaming(file, fileId);
 
-            // Step 3: Update file status in DB
+            // Step 3: Update file status and processed info in DB
+            fileTable.setMean(processedData.get(0));
+            fileTable.setMedian(processedData.get(1));
             fileProcessorService.updateFileMetaDataWithCompletedStatus(fileTable);
             System.out.println("✅ File processing completed for ID: " + fileId);
 

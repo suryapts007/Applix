@@ -29,6 +29,7 @@ public class DataController {
 
 
     // Files with size less that 100MB or 1 million rows
+    @Deprecated
     @PostMapping("/upload_sync")
     public UploadResponse uploadFileSync(@RequestParam("file") MultipartFile file) {
         try {
