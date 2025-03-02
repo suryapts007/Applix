@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface FileRepository extends JpaRepository<FileTable, Integer> {
-     List<FileTable> findByStatusIn(List<Integer> statuses);
+     List<FileTable> findByStatusInOrderByIdDesc(List<Integer> statuses);
 
      Optional<FileTable> findById(Integer id);
 }

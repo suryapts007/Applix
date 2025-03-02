@@ -3,7 +3,8 @@ package com.example.applix.models.db;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import java.time.LocalDateTime;
+
+import java.time.Instant;
 
 @Entity
 @Getter
@@ -21,7 +22,7 @@ public class FilteredData {
     private Integer fileId;
 
     @Column(name = "timestamp", nullable = false)
-    private LocalDateTime timestamp;
+    private Instant timestampInstant;
 
     @Column(name = "temperature", nullable = false)
     private Double temperature;

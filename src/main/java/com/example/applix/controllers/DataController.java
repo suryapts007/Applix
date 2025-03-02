@@ -18,7 +18,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/data")
-@CrossOrigin(origins = "http://localhost:5173") // Allow only frontend
+@CrossOrigin(origins = "http://localhost:5174") // Allow only frontend
 // TODO :: make it work in production
 public class DataController {
     private final DataService dataService;
@@ -60,11 +60,9 @@ public class DataController {
     @GetMapping
     public GetDataResponse getData(@RequestParam("fileId") Integer fileId, @RequestParam("page") Integer pageNo, @RequestParam("offset") Integer offSet, @RequestParam(value = "startTime", required = false) String startTime, @RequestParam(value = "endTime", required = false) String endTime) {
         try {
-            List<FilteredData> data = dataService.getData(fileId, pageNo, offSet, startTime, endTime);
-            int totalPageCount = dataService.getTotalPageCount(fileId, offSet, startTime, endTime);
-            return new GetDataResponse(data, totalPageCount, "success", ErrorCode.NO_ERROR);
+            return dataService.getData(fileId, pageNo, offSet, startTime, endTime);
         } catch (Exception e) {
-            return new GetDataResponse(null, null, "Error : " + e.getMessage(), ErrorCode.GENERIC_ERROR);
+            return new GetDataResponse(null, 0, 0L, 0L, 0.0, 0.0, "Error : " + e.getMessage(), ErrorCode.GENERIC_ERROR);
         }
     }
 
